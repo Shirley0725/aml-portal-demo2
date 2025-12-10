@@ -27,8 +27,7 @@ import {
   Download,
   Plus,
   Users,
-  Code,
-  Edit2 // <--- 新增此圖標用於編輯 (Modification 2.0)
+  Code
 } from 'lucide-react';
 import {
   BarChart,
@@ -50,45 +49,22 @@ const MOCK_PROJECTS = [
   { id: 4, name: '台北 (Taipei)', created: '2026/01/01', lastEdited: '2026/01/01', status: 'Active' },
 ];
 
-// MODIFICATION 2.0: 依照 Wireframe 圖二/圖三 調整原廠態樣參數資料結構
 const MOCK_VENDOR_PARAMS = [
   {
     id: 'txna1101',
-    schedule: '月跑批', // 態樣層級的 AML 排程規則
-    updateTime: '2025-10-10 10:45:45', 
-    params: [
-      {
-        paramName: 'credit_limit',
-        value: '1,000,000',
-        duration: '2026/01/01 ~ 2026/03/31',
-        buildTime: '2025/10/10 10:45:45', // Pop-up 額外資訊：建立時間
-      },
-      {
-        paramName: 'debit_limit',
-        value: '200,000',
-        duration: '2026/01/01 ~ 2026/03/31',
-        buildTime: '2025/10/10 10:45:45',
-      },
-      {
-        paramName: 'txn_amount',
-        value: '500,000',
-        duration: '2026/04/01 ~ 9999-01-01',
-        buildTime: '2025/10/10 10:45:45',
-      },
-    ]
+    schedule: '月跑批',
+    paramName: 'credit_limit',
+    value: '1,000,000',
+    duration: '2026/01/01 ~ 2026/03/31',
+    updateTime: '2025-10-10 10:45:45',
   },
   {
-    id: 'txna1702',
-    schedule: '日跑批',
-    updateTime: '2025-11-01 09:00:00',
-    params: [
-      {
-        paramName: 'max_daily_txn_count',
-        value: '5',
-        duration: '2026/01/01 ~ 9999-01-01',
-        buildTime: '2025/11/01 09:00:00',
-      },
-    ]
+    id: 'txna1101',
+    schedule: '月跑批',
+    paramName: 'debit_limit',
+    value: '200,000',
+    duration: '2026/01/01 ~ 2026/03/31',
+    updateTime: '2025-10-10 10:45:45',
   },
 ];
 
@@ -102,21 +78,30 @@ const MOCK_FIELDS = [
   { name: 'txn_ccy', type: 'string', desc: '幣別', status: '成功' },
 ];
 
+// UPDATED: MOCK_VERIFY_JOBS with more details for the Report Tab
 const MOCK_VERIFY_JOBS = [
   {
     id: 'V-2025Q4-001',
     title: '2025 Q4 分析 - 驗證 txna1101',
     createTime: '2025-11-19 10:00:00',
-    startTime: '2025-11-20 10:00',
-    endTime: '2025-11-21 10:00',
+    startTime: '2025-01-01 00:00:00', // Adjusted format
+    endTime: '2025-05-31 23:59:59',   // Adjusted format
     status: 'Success',
-    simulatedAlerts: 10000, 
-    actualAlerts: 9999,      
-    intersectionAlerts: 9998, 
-    diffAlerts: 2,           
-    type1: 1, // 型1錯誤數量
-    type2: 1, // 型2錯誤數量
-    params: { code: 'txna1101', limit: '1,000,000' }
+    simulatedAlerts: 100,
+    actualAlerts: 98,
+    type1: 1, 
+    type2: 1,
+    params: { code: 'txna1101', limit: '1,000,000' },
+    description: '此為 2025 年第四季之例行性驗證，主要針對 txna1101 態樣進行參數調整後之驗證。', // New field
+    notes: '驗證結果顯示 Type 1 錯誤較高，需進一步調查差異原因。', // New field
+    pid: '324834', // New field
+    scenarioCode: 'txna1101',
+    scenarioSchedule: '月跑批',
+    vendorParams: [
+      { label: 'credit_limit', simulated: '1,000,000', actual: '1,000,000' },
+      { label: 'debit_limit', simulated: '500,000', actual: '1,000,000' },
+      { label: 'threshold', simulated: '10,000', actual: '1,000,000' },
+    ],
   },
 ];
 
@@ -189,11 +174,7 @@ export default function AMLPortal() {
   // Verification State
   const [selectedVerify, setSelectedVerify] = useState(null);
   const [isCreatingVerify, setIsCreatingVerify] = useState(false);
-  const [verifyTab, setVerifyTab] = useState('report'); 
-
-  // Vendor Params State (MODIFICATION 2.0)
-  const [showParamDetail, setShowParamDetail] = useState(null); // 參數詳情彈窗
-  const [editingSchedule, setEditingSchedule] = useState(null); // 編輯 AML 排程規則的彈窗
+  const [verifyTab, setVerifyTab] = useState('report'); // Default to '驗證報告'
 
   // --- Helpers ---
   
@@ -228,11 +209,12 @@ export default function AMLPortal() {
       name: newFieldData.name,
       type: newFieldData.type,
       desc: newFieldData.desc,
-      status: '失敗' 
+      status: '失敗' // Default new field status
     };
     setFields([...fields, newField]);
     setIsCreatingField(false);
     setNewFieldData({ name: '', desc: '', type: 'string' });
+    // Optionally open the new field in edit mode
     setEditingField(newField);
   };
 
@@ -261,8 +243,8 @@ export default function AMLPortal() {
 
   // --- Views ---
 
+  // ... (ProjectList, Connect, Processing views preserved from previous code) ...
   const renderProjectList = () => (
-    // ... (Project List component code) ...
     <div className="flex flex-col h-screen w-full bg-gray-50 font-sans">
       <div className="bg-white border-b border-gray-200 px-8 py-4 flex justify-between items-center shadow-sm">
         <div className="text-xl font-bold text-gray-900 flex items-center gap-2">
@@ -345,16 +327,6 @@ export default function AMLPortal() {
         <div className="space-y-6">
           <div><label className="block text-sm font-bold text-gray-700 mb-2">資料庫類型</label><select className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm"><option value="sas">SAS</option></select></div>
           <div><label className="block text-sm font-bold text-gray-700 mb-2">資料夾路徑</label><input type="text" defaultValue="/XX/XXXXX/2025Q3_Trade_Data" className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm" /></div>
-          {/* MODIFICATION 1.0: 新增「專案起訖日」欄位 */}
-          <div>
-            <label className="block text-sm font-bold text-gray-700 mb-2">專案起訖日</label>
-            <div className="flex gap-2 items-center">
-              <input type="date" className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm" defaultValue="2025-07-01" />
-              <span>~</span>
-              <input type="date" className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm" defaultValue="2025-09-30" />
-            </div>
-          </div>
-          {/* END MODIFICATION 1.0 */}
           <div className="pt-4 flex gap-4"><button onClick={() => setAppState('projects')} className="flex-1 bg-white hover:bg-gray-50 text-gray-700 font-medium py-3 rounded-lg border border-gray-300">取消</button><button onClick={() => setAppState('processing')} className="flex-1 bg-black hover:bg-gray-800 text-white font-medium py-3 rounded-lg">確定</button></div>
         </div>
       </div>
@@ -389,6 +361,7 @@ export default function AMLPortal() {
     </div>
   );
 
+  // 3.2 欄位對映 (Field Mapping) - MAJOR UPDATE based on PNG
   const renderFields = () => {
     // 3.2.1 Create Field Mode
     if (isCreatingField) {
@@ -676,139 +649,221 @@ if (row.Txn_Type !== '999') {
     );
   };
 
-  // MODIFICATION 2.0: 重寫原廠態樣參數視圖 (符合 Wireframe 2/3)
   const renderVendorParams = () => (
     <div className="p-8 w-full max-w-7xl mx-auto space-y-6 font-sans">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-900">原廠態樣參數</h2>
-        <p className="text-sm text-gray-500">此資料為 AML 系統內可調整參數的「原廠設定」。</p>
-      </div>
+      <div className="flex justify-between items-center"><h2 className="text-2xl font-bold text-gray-900">原廠態樣參數</h2></div>
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
          <table className="w-full text-left">
             <thead className="bg-gray-50 border-b border-gray-200 text-gray-500 text-xs uppercase font-semibold">
               <tr>
                 <th className="p-5 w-24">態樣</th>
-                <th className="p-5 w-36">AML 排程規則</th>
+                <th className="p-5 w-24">AML 排程規則</th>
                 <th className="p-5">參數 (Value)</th>
-                <th className="p-5 w-32">更新時間</th>
+                <th className="p-5">啟用期間</th>
+                <th className="p-5">更新時間</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 text-sm">
-              {MOCK_VENDOR_PARAMS.map((scenario) => (
-                <tr key={scenario.id} className="hover:bg-gray-50 align-top">
-                  {/* 態樣名稱 */}
-                  <td className="p-5 font-mono font-medium text-gray-900">{scenario.id}</td>
-                  
-                  {/* AML 排程規則 - 可編輯 (點擊彈窗編輯) */}
-                  <td className="p-5">
-                      <span className="flex items-center gap-1 text-gray-600">
-                          {scenario.schedule}
-                          <button 
-                              onClick={() => setEditingSchedule(scenario)}
-                              className="text-gray-400 hover:text-blue-600 p-1 rounded hover:bg-blue-100"
-                              title="編輯 AML 排程規則"
-                          >
-                              <Edit2 size={14} /> 
-                          </button>
-                      </span>
-                  </td>
-                  
-                  {/* 參數列表 - 點擊彈出詳情視窗 */}
-                  <td className="p-5 space-y-2">
-                      {scenario.params.map((param, pIdx) => (
-                          <div key={pIdx} className="flex items-center gap-4">
-                              <button 
-                                  onClick={() => setShowParamDetail({ 
-                                    ...param, 
-                                    id: scenario.id, 
-                                    scenarioUpdateTime: scenario.updateTime, 
-                                    schedule: scenario.schedule 
-                                  })}
-                                  className="font-mono text-blue-700 text-xs font-medium bg-blue-50 border border-blue-200 px-3 py-1.5 rounded-lg hover:bg-blue-100 transition-colors"
-                              >
-                                  {param.paramName}: {param.value}
-                              </button>
-                              <div className="text-xs text-gray-500">
-                                  啟用期間: {param.duration}
-                              </div>
-                          </div>
-                      ))}
-                  </td>
-                  
-                  {/* 更新時間 (態樣層級) */}
-                  <td className="p-5 text-gray-400 text-xs font-mono">{scenario.updateTime}</td>
+              {MOCK_VENDOR_PARAMS.map((param, idx) => (
+                <tr key={idx} className="hover:bg-gray-50">
+                  <td className="p-5 font-mono font-medium text-gray-900">{param.id}</td>
+                  <td className="p-5"><span className="px-2 py-1 bg-gray-100 rounded text-xs text-gray-600 border border-gray-200">{param.schedule}</span></td>
+                  <td className="p-5 font-mono text-blue-700 font-medium">{param.paramName}: {param.value}</td>
+                  <td className="p-5 text-gray-600">{param.duration}</td>
+                  <td className="p-5 text-gray-400 text-xs">{param.updateTime}</td>
                 </tr>
               ))}
             </tbody>
          </table>
       </div>
-
-      {/* 參數詳情 Pop-up (符合 Wireframe 圖三) */}
-      {showParamDetail && (
-          <div className="absolute inset-0 bg-gray-900/50 flex items-center justify-center z-50 backdrop-blur-sm">
-              <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm overflow-hidden animate-fade-in">
-                  <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
-                      <h3 className="font-bold text-gray-900">參數詳情: {showParamDetail.paramName}</h3>
-                      <button onClick={() => setShowParamDetail(null)} className="text-gray-400 hover:text-gray-600"><X size={20}/></button>
-                  </div>
-                  <div className="p-6 space-y-4">
-                      <div className="text-sm"><span className="font-medium text-gray-600 w-24 inline-block">態樣 ID:</span> <span className="font-mono text-gray-800">{showParamDetail.id}</span></div>
-                      <div className="text-sm"><span className="font-medium text-gray-600 w-24 inline-block">AML 規則:</span> <span className="text-gray-800">{showParamDetail.schedule}</span></div>
-                      
-                      <div className="pt-2 border-t border-gray-100">
-                        <div className="text-base font-bold text-gray-800 mb-2">參數值: <span className="text-blue-600">{showParamDetail.value}</span></div>
-                        <div className="text-sm"><span className="font-medium text-gray-600 w-24 inline-block">啟用期間:</span> <span className="font-mono text-gray-800">{showParamDetail.duration}</span></div>
-                        <div className="text-sm"><span className="font-medium text-gray-600 w-24 inline-block">建立時間:</span> <span className="font-mono text-gray-800">{showParamDetail.buildTime}</span></div>
-                        <div className="text-sm"><span className="font-medium text-gray-600 w-24 inline-block">態樣更新:</span> <span className="font-mono text-gray-800">{showParamDetail.scenarioUpdateTime}</span></div>
-                      </div>
-                  </div>
-                  <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end gap-3">
-                      <button className="px-4 py-2 text-sm text-gray-600 font-medium hover:bg-gray-100 rounded-lg flex items-center gap-2">
-                           編輯參數值
-                      </button>
-                      <button onClick={() => setShowParamDetail(null)} className="px-4 py-2 text-sm text-white font-medium bg-black hover:bg-gray-800 rounded-lg">關閉</button>
-                  </div>
-              </div>
-          </div>
-      )}
-
-      {/* AML 排程規則編輯 Pop-up */}
-      {editingSchedule && (
-          <div className="absolute inset-0 bg-gray-900/50 flex items-center justify-center z-50 backdrop-blur-sm">
-              <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-fade-in">
-                  <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
-                      <h3 className="font-bold text-gray-900">編輯 AML 排程規則 ({editingSchedule.id})</h3>
-                      <button onClick={() => setEditingSchedule(null)} className="text-gray-400 hover:text-gray-600"><X size={20}/></button>
-                  </div>
-                  <div className="p-6 space-y-5">
-                      <div>
-                          <label className="block text-sm font-bold text-gray-700 mb-2">AML 排程規則</label>
-                          <select 
-                              className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white"
-                              defaultValue={editingSchedule.schedule}
-                          >
-                              <option value="月跑批">月跑批 (月)</option>
-                              <option value="日跑批">日跑批 (日)</option>
-                          </select>
-                      </div>
-                      <div className="text-xs text-gray-500">
-                          變更此規則將影響所有相關參數的執行時程。
-                      </div>
-                  </div>
-                  <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end gap-3">
-                      <button onClick={() => setEditingSchedule(null)} className="px-4 py-2 text-sm text-gray-600 font-medium hover:bg-gray-100 rounded-lg">取消</button>
-                      <button onClick={() => setEditingSchedule(null)} className="px-4 py-2 text-sm text-white font-medium bg-black hover:bg-gray-800 rounded-lg">確定儲存</button>
-                  </div>
-              </div>
-          </div>
-      )}
     </div>
   );
-  // END MODIFICATION 2.0
 
-
-  // MODIFICATION 3.0: 態樣驗證視圖 (Tab 樣式與內容調整)
   const renderVerification = () => {
+
+    // Helper for the new Report Tab content
+    const renderVerifyReportTab = (selectedVerify) => {
+      // Mock data for the Type 1 Error table (monthly breakdown)
+      const chartData = [
+        { name: '1月', simulated: 200, actual: 195, type1: 5, type2: 3 },
+        { name: '2月', simulated: 250, actual: 247, type1: 3, type2: 1 },
+        { name: '3月', simulated: 300, actual: 294, type1: 6, type2: 2 },
+        { name: '4月', simulated: 180, actual: 178, type1: 2, type2: 0 },
+        { name: '5月', simulated: 220, actual: 216, type1: 4, type2: 1 },
+      ];
+      
+      // Mock data for the Type 2 Error table
+      const mockType2Errors = [
+        { id: '309999', title: '異常交易 (大額)', reason: '交易金額誤判', status: 'In Progress' },
+        { id: '310000', title: '異常交易 (小額)', reason: '交易時間誤判', status: 'Not Started' },
+        { id: '310001', title: '異常交易 (現金)', reason: '幣別錯誤', status: 'In Progress' },
+      ];
+
+      return (
+        <div className="flex gap-6">
+          {/* Left Column (Verification Info) */}
+          <div className="w-1/3 space-y-4 flex-shrink-0">
+            <div className="p-6 bg-white rounded-xl shadow-sm border border-gray-200 space-y-4">
+              <div className="flex items-center gap-2 mb-4">
+                <StatusBadge status={selectedVerify.status} />
+              </div>
+              <div className="space-y-2 text-sm">
+                <div className="grid grid-cols-2">
+                  <span className="text-gray-500 font-medium">標題</span>
+                  <span className="text-gray-900 font-bold">{selectedVerify.title}</span>
+                </div>
+                <div className="grid grid-cols-2">
+                  <span className="text-gray-500 font-medium">描述</span>
+                  <span className="text-gray-700">{selectedVerify.description}</span>
+                </div>
+                <div className="grid grid-cols-2">
+                  <span className="text-gray-500 font-medium">部註</span>
+                  <span className="text-gray-700">{selectedVerify.notes}</span>
+                </div>
+                <div className="grid grid-cols-2">
+                  <span className="text-gray-500 font-medium">PID</span>
+                  <span className="text-gray-700">{selectedVerify.pid}</span>
+                </div>
+                <div className="grid grid-cols-2 pt-2 border-t">
+                  <span className="text-gray-500 font-medium">期間</span>
+                  <span className="text-gray-700 font-mono text-xs">
+                    {selectedVerify.startTime}<br />~ {selectedVerify.endTime}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2">
+                  <span className="text-gray-500 font-medium">態樣</span>
+                  <span className="text-gray-700 font-mono text-xs">{selectedVerify.scenarioCode} ({selectedVerify.scenarioSchedule})</span>
+                </div>
+              </div>
+            </div>
+
+            {/* 驗證參數表格 - Matching Wireframe style */}
+            <div className="p-6 bg-white rounded-xl shadow-sm border border-gray-200">
+              <h4 className="font-bold text-gray-800 mb-4">原廠態樣參數 vs 預計驗證參數</h4>
+              <table className="w-full text-sm text-left">
+                <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
+                  <tr>
+                    <th className="py-2 px-3">參數</th>
+                    <th className="py-2 px-3 text-right">原廠設定</th>
+                    <th className="py-2 px-3 text-right">預計驗證參數</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {selectedVerify.vendorParams.map((param, index) => (
+                    <tr key={index}>
+                      <td className="py-2 px-3 font-mono font-medium text-gray-800">{param.label}</td>
+                      <td className="py-2 px-3 text-right text-gray-500 font-mono">{param.simulated}</td>
+                      <td className="py-2 px-3 text-right">
+                        <span className={`font-mono ${param.simulated === param.actual ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'} px-2 py-0.5 rounded text-xs font-bold`}>
+                          {param.actual}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Right Column (Errors and Reports) */}
+          <div className="flex-1 space-y-6">
+            {/* Search/Filter Block */}
+            <div className="p-6 bg-white rounded-xl shadow-sm border border-gray-200">
+              <h4 className="font-bold text-gray-800 mb-4">搜尋特定期間內的驗證結果</h4>
+              <div className="space-y-3">
+                <div className="flex gap-3">
+                  <div className="flex-1 relative">
+                    <Search size={16} className="absolute left-3 top-3 text-gray-400" />
+                    <input type="text" placeholder="YYYY-MM-DD iomngists" className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-1 focus:ring-blue-500" />
+                  </div>
+                  <div className="flex-1 relative">
+                    <Calendar size={16} className="absolute left-3 top-3 text-gray-400" />
+                    <input type="date" className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-1 focus:ring-blue-500" defaultValue="2025-01-01" />
+                  </div>
+                  <div className="flex-1 relative">
+                    <Calendar size={16} className="absolute left-3 top-3 text-gray-400" />
+                    <input type="date" className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-1 focus:ring-blue-500" defaultValue="2025-05-31" />
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <div className="flex-1 relative">
+                    <Search size={16} className="absolute left-3 top-3 text-gray-400" />
+                    <input type="text" placeholder="YYYY-MM-DD iompsss" className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-1 focus:ring-blue-500" />
+                  </div>
+                  <button className="bg-black text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-800 flex items-center gap-2">篩選</button>
+                  <button className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 flex items-center gap-2"><Download size={16} /> 匯入 Excel</button>
+                </div>
+              </div>
+            </div>
+
+            {/* Type 1 Error Section */}
+            <div className="p-6 bg-white rounded-xl shadow-sm border border-gray-200">
+              <h4 className="text-lg font-bold text-red-700 mb-4 flex items-center gap-2"><AlertOctagon size={20} /> 型1錯誤 (本系統.產生, 實體系統.無)</h4>
+              <div className="overflow-hidden">
+                <table className="w-full text-left text-sm">
+                  <thead className="text-xs uppercase text-gray-500 bg-gray-50">
+                    <tr>
+                      <th className="py-3 px-4">月份</th>
+                      <th className="py-3 px-4 text-center">模擬警示數</th>
+                      <th className="py-3 px-4 text-center">型1錯誤數</th>
+                      <th className="py-3 px-4 text-center">佔比</th>
+                      <th className="py-3 px-4 text-right">調查</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {chartData.map((item, index) => (
+                      <tr key={index} className="hover:bg-red-50">
+                        <td className="py-3 px-4 font-bold text-gray-800">{item.name}</td>
+                        <td className="py-3 px-4 text-center text-gray-700 font-mono">{item.simulated}</td>
+                        <td className="py-3 px-4 text-center font-bold text-red-600 font-mono">{item.type1}</td>
+                        <td className="py-3 px-4 text-center">
+                          <span className="text-xs text-red-600 bg-red-100 px-2 py-0.5 rounded-full font-medium">
+                            {((item.type1 / item.simulated) * 100).toFixed(1)}%
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <button className="text-xs text-blue-600 hover:text-blue-800 font-medium">開始調查</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Type 2 Error Section */}
+            <div className="p-6 bg-white rounded-xl shadow-sm border border-gray-200">
+              <h4 className="text-lg font-bold text-orange-700 mb-4 flex items-center gap-2"><AlertOctagon size={20} /> 型2錯誤 (本系統.無, 實體系統.產生)</h4>
+              <div className="overflow-hidden">
+                <table className="w-full text-left text-sm">
+                  <thead className="text-xs uppercase text-gray-500 bg-gray-50">
+                    <tr>
+                      <th className="py-3 px-4">交易時間</th>
+                      <th className="py-3 px-4">ID</th>
+                      <th className="py-3 px-4">原始警示</th>
+                      <th className="py-3 px-4">差異原因</th>
+                      <th className="py-3 px-4 text-right">處理狀態</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {mockType2Errors.map((item, index) => (
+                      <tr key={index} className="hover:bg-orange-50">
+                        <td className="py-3 px-4 text-gray-500 font-mono text-xs">2025-02-10 10:00:00</td>
+                        <td className="py-3 px-4 font-mono font-medium text-gray-800">{item.id}</td>
+                        <td className="py-3 px-4 text-blue-700 hover:underline cursor-pointer">{item.title}</td>
+                        <td className="py-3 px-4 text-gray-700">{item.reason}</td>
+                        <td className="py-3 px-4 text-right"><StatusBadge status={item.status} /></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
     if (isCreatingVerify) {
       return (
         <div className="absolute inset-0 bg-gray-900/50 flex items-center justify-center z-50 backdrop-blur-sm">
@@ -827,184 +882,133 @@ if (row.Txn_Type !== '999') {
       );
     }
 
+    // UPDATED: Single Verification Detail View
     if (selectedVerify) {
       return (
-        <div className="flex flex-col h-full w-full bg-gray-50 font-sans">
+        <div className="flex flex-col h-full w-full bg-gray-100 font-sans">
           {/* Header */}
           <div className="bg-white border-b border-gray-200 px-8 py-5 flex justify-between items-center shadow-sm">
             <div className="flex items-center gap-4">
-                <button onClick={() => setSelectedVerify(null)} className="p-2 hover:bg-gray-100 rounded-full text-gray-500"><ArrowLeft size={20} /></button>
-                <div>
-                    <h2 className="text-xl font-bold text-gray-900">{selectedVerify.title}</h2>
-                    <div className="flex gap-4 text-xs text-gray-500 mt-1 items-center">
-                        <StatusBadge status={selectedVerify.status} />
-                        <span>建立時間: {selectedVerify.createTime}</span>
-                    </div>
-                </div>
+               <button onClick={() => setSelectedVerify(null)} className="p-2 hover:bg-gray-100 rounded-full text-gray-500"><ArrowLeft size={20} /></button>
+               <div>
+                  <h2 className="text-xl font-bold text-gray-900">{selectedVerify.title}</h2>
+                  <div className="flex gap-4 text-xs text-gray-500 mt-1 items-center"><span>建立時間: {selectedVerify.createTime}</span></div>
+               </div>
             </div>
             <div className="flex gap-2">
-                <button className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 text-gray-700 bg-white"><Download size={16} /> 匯出報告</button>
+               <button className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 text-gray-700 bg-white"><MoreHorizontal size={16} /> 更多</button>
+               <button className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700"><Download size={16} /> 匯出報告</button>
             </div>
           </div>
           
-          {/* Tab Navigation (Modification 3.0) */}
-          <div className="bg-white border-b border-gray-200 px-8">
-              <nav className="flex gap-6 -mb-px">
-                  {['驗證報告', '設定', '差異調查紀錄'].map(tab => (
-                      <button 
-                          key={tab} 
-                          onClick={() => setVerifyTab(tab === '設定' ? 'setting' : tab === '驗證報告' ? 'report' : 'diff')} 
-                          className={`py-3 text-sm font-medium border-b-2 transition-colors ${
-                              (verifyTab === 'setting' && tab === '設定') || 
-                              (verifyTab === 'report' && tab === '驗證報告') || 
-                              (verifyTab === 'diff' && tab === '差異調查紀錄') 
-                              ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'
-                          }`}
-                      >
-                          {tab}
-                      </button>
-                  ))}
-              </nav>
+          {/* Tabs - New button style UI beautification */}
+          <div className="bg-gray-100 border-b border-gray-200 px-8">
+            <nav className="flex gap-2 py-3">
+              {['設定', '驗證報告', '差異調查紀錄'].map(tab => {
+                const isSelected = (verifyTab === 'setting' && tab === '設定') || (verifyTab === 'report' && tab === '驗證報告') || (verifyTab === 'diff' && tab === '差異調查紀錄');
+                return (
+                  <button 
+                    key={tab} 
+                    onClick={() => setVerifyTab(tab === '設定' ? 'setting' : tab === '驗證報告' ? 'report' : 'diff')} 
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      isSelected
+                        ? 'bg-blue-600 text-white shadow-md'
+                        : 'bg-white text-gray-700 hover:bg-gray-200 shadow-sm'
+                    }`}
+                  >
+                    {tab}
+                  </button>
+                );
+              })}
+            </nav>
           </div>
-
-          {/* Tab Content */}
+          
+          {/* Content */}
           <div className="flex-1 overflow-y-auto p-8">
-            {/* 驗證報告 (Report) - Modification 3.0: 調整數據卡片 */}
-            {verifyTab === 'report' && (
-              <div className="max-w-6xl mx-auto space-y-8">
-                {/* 年月差異表 */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                  <h3 className="font-bold text-gray-800 mb-4">年月差異表</h3>
-                  <table className="w-full text-sm text-left">
-                    <thead className="bg-gray-50 text-gray-500 border-b border-gray-200">
-                      <tr>
-                        <th className="p-3">年</th>
-                        <th className="p-3">月</th>
-                        <th className="p-3 text-right">模擬產生 alert 數量</th>
-                        <th className="p-3 text-right">實際產生 alert 數量</th>
-                        <th className="p-3 text-right text-red-600">型1錯誤數量</th>
-                        <th className="p-3 text-right text-orange-600">型2錯誤數量</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td className="p-3">2025</td>
-                        <td className="p-3">10</td>
-                        <td className="p-3 text-right font-mono">{selectedVerify.simulatedAlerts}</td>
-                        <td className="p-3 text-right font-mono">{selectedVerify.actualAlerts}</td>
-                        <td className="p-3 text-right font-mono text-red-600 font-bold">{selectedVerify.type1}</td>
-                        <td className="p-3 text-right font-mono text-orange-600 font-bold">{selectedVerify.type2}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
+            <div className="max-w-7xl mx-auto">
+              {/* UPDATED: Report Tab Content (Matching Wireframe) */}
+              {verifyTab === 'report' && renderVerifyReportTab(selectedVerify)}
+              
+              {/* UPDATED: Setting Tab Content */}
+              {verifyTab === 'setting' && (
+                  <div className="max-w-3xl mx-auto bg-white p-8 rounded-xl shadow-lg border border-gray-200 space-y-6">
+                      <h3 className="text-xl font-bold text-gray-900 border-b pb-4 mb-4">驗證設定</h3>
+                      <div className="space-y-4">
+                          <div>
+                              <label className="block text-sm font-bold text-gray-700 mb-1">標題</label>
+                              <input type="text" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none" defaultValue={selectedVerify.title} />
+                          </div>
+                          <div>
+                              <label className="block text-sm font-bold text-gray-700 mb-1">描述</label>
+                              <textarea className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none h-20" defaultValue={selectedVerify.description} />
+                          </div>
+                          <div>
+                              <label className="block text-sm font-bold text-gray-700 mb-1">資料區間</label>
+                              <div className="flex gap-2 items-center">
+                                  <input type="datetime-local" className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm" defaultValue={selectedVerify.startTime.replace(' ', 'T').substring(0, 16)} />
+                                  <span>~</span>
+                                  <input type="datetime-local" className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm" defaultValue={selectedVerify.endTime.replace(' ', 'T').substring(0, 16)} />
+                              </div>
+                          </div>
+                          <div>
+                              <label className="block text-sm font-bold text-gray-700 mb-1">態樣</label>
+                              <select className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white" defaultValue={selectedVerify.scenarioCode}>
+                                  <option>{selectedVerify.scenarioCode} ({selectedVerify.scenarioSchedule})</option>
+                              </select>
+                          </div>
+                          <div className="pt-4 flex justify-end">
+                              <button className="px-6 py-2 bg-black text-white rounded-lg text-sm font-medium hover:bg-gray-800 shadow-md flex items-center gap-2"><Save size={16} /> 儲存修改</button>
+                          </div>
+                      </div>
+                  </div>
+              )}
 
-                {/* 數據卡片 - Modification 3.0: 調整數據源 */}
-                <div className="grid grid-cols-4 gap-6">
-                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                        <div className="text-sm text-gray-500 mb-2">本系統 (模擬)</div>
-                        <div className="text-3xl font-bold text-gray-900">{selectedVerify.simulatedAlerts.toLocaleString()}</div>
-                    </div>
-                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                        <div className="text-sm text-gray-500 mb-2">行內 AML (實際)</div>
-                        <div className="text-3xl font-bold text-gray-900">{selectedVerify.actualAlerts.toLocaleString()}</div>
-                    </div>
-                    <div className="bg-green-50 p-6 rounded-xl border border-green-100">
-                        <div className="text-sm text-green-700 font-bold mb-2">互相交集</div>
-                        <div className="text-3xl font-bold text-green-800">{selectedVerify.intersectionAlerts.toLocaleString()}</div>
-                    </div>
-                    <div className="bg-red-50 p-6 rounded-xl border border-red-100">
-                        <div className="text-sm text-red-700 font-bold mb-2">無交集 (差異)</div>
-                        <div className="text-3xl font-bold text-red-800">{selectedVerify.diffAlerts.toLocaleString()}</div>
-                    </div>
-                </div>
-              </div>
-            )}
-            
-            {/* 設定 (Setting) */}
-            {verifyTab === 'setting' && (
-                <div className="max-w-3xl mx-auto bg-white p-8 rounded-xl shadow-sm border border-gray-200 space-y-6">
-                    <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-1">標題</label>
-                        <div className="text-gray-900 font-medium">{selectedVerify.title}</div>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-1">驗證期間</label>
-                        <div className="text-gray-900 font-medium">{selectedVerify.startTime} ~ {selectedVerify.endTime}</div>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-1">驗證態樣</label>
-                        <div className="text-gray-900 font-medium">{selectedVerify.params.code}</div>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-1">參數設定</label>
-                        <div className="bg-gray-50 p-4 rounded border border-gray-200 font-mono text-sm space-y-2">
-                            <div className="flex justify-between"><span>credit_limit:</span> <span>{selectedVerify.params.limit}</span></div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* 差異調查紀錄 (Diff) - Modification 3.0: 新增內容 */}
-            {verifyTab === 'diff' && (
-                <div className="max-w-6xl mx-auto space-y-6">
-                    <div className="bg-white p-6 rounded-xl shadow-sm border border-red-200">
-                        <h3 className="font-bold text-lg text-red-700 mb-4">型1錯誤 (本系統未產生, 實際系統產生)</h3>
-                        <p className="text-sm text-gray-600">目前共 **{selectedVerify.type1}** 筆紀錄，等待調查。</p>
-                        <div className="mt-4 border border-gray-200 rounded-lg overflow-hidden">
-                            <table className="w-full text-sm text-left">
-                                <thead className="bg-red-50 text-red-700 text-xs uppercase">
-                                    <tr>
-                                        <th className="p-3">客戶 ID</th>
-                                        <th className="p-3">交易時間</th>
-                                        <th className="p-3">原因初判</th>
-                                        <th className="p-3">調查狀態</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr className="hover:bg-red-100/50">
-                                        <td className="p-3 font-mono">P-00123</td>
-                                        <td className="p-3 font-mono">2025-10-15 11:00</td>
-                                        <td className="p-3">行內資料源多一筆手續費交易</td>
-                                        <td className="p-3"><StatusBadge status={'Not Started'} /></td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    <div className="bg-white p-6 rounded-xl shadow-sm border border-orange-200">
-                        <h3 className="font-bold text-lg text-orange-700 mb-4">型2錯誤 (本系統產生, 實際系統未產生)</h3>
-                        <p className="text-sm text-gray-600">目前共 **{selectedVerify.type2}** 筆紀錄，等待調查。</p>
-                        <div className="mt-4 border border-gray-200 rounded-lg overflow-hidden">
-                            <table className="w-full text-sm text-left">
-                                <thead className="bg-orange-50 text-orange-700 text-xs uppercase">
-                                    <tr>
-                                        <th className="p-3">客戶 ID</th>
-                                        <th className="p-3">交易時間</th>
-                                        <th className="p-3">原因初判</th>
-                                        <th className="p-3">調查狀態</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr className="hover:bg-orange-100/50">
-                                        <td className="p-3 font-mono">P-00456</td>
-                                        <td className="p-3 font-mono">2025-10-16 15:30</td>
-                                        <td className="p-3">本系統欄位對映邏輯錯誤</td>
-                                        <td className="p-3"><StatusBadge status={'In Progress'} /></td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            )}
+              {/* NEW: 差異調查紀錄 Tab Content */}
+              {verifyTab === 'diff' && (
+                  <div className="space-y-6">
+                      <div className="flex justify-between items-center">
+                          <h2 className="text-2xl font-bold text-gray-900">差異調查紀錄</h2>
+                          <button className="bg-black text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-800 shadow-sm flex items-center gap-2"><Plus size={16} /> 新增調查</button>
+                      </div>
+                      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                          <table className="w-full text-left">
+                              <thead className="bg-gray-50 border-b border-gray-200 text-gray-500 text-xs uppercase font-semibold">
+                                  <tr>
+                                      <th className="p-4">ID</th>
+                                      <th className="p-4">警示/差異 ID</th>
+                                      <th className="p-4">差異類型</th>
+                                      <th className="p-4">調查描述</th>
+                                      <th className="p-4">建立時間</th>
+                                      <th className="p-4 text-right">狀態</th>
+                                  </tr>
+                              </thead>
+                              <tbody className="divide-y divide-gray-100 text-sm">
+                                  {[
+                                      { id: 'I-001', diffId: '309999', type: '型2錯誤', desc: '確認交易時間誤判，已排除。', time: '2025-06-01 11:30', status: 'In Progress' },
+                                      { id: 'I-002', diffId: 'A-002', type: '型1錯誤', desc: '檢查參數設定，已確認為預期差異。', time: '2025-06-02 10:00', status: 'Success' },
+                                  ].map((log, i) => (
+                                      <tr key={i} className="hover:bg-gray-50">
+                                          <td className="p-4 font-mono font-medium text-gray-900">{log.id}</td>
+                                          <td className="p-4 text-blue-700 font-mono text-xs hover:underline cursor-pointer">{log.diffId}</td>
+                                          <td className="p-4"><span className={`px-2 py-1 rounded text-xs font-medium ${log.type === '型1錯誤' ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'}`}>{log.type}</span></td>
+                                          <td className="p-4 text-gray-700">{log.desc}</td>
+                                          <td className="p-4 text-gray-500 text-xs font-mono">{log.time}</td>
+                                          <td className="p-4 text-right"><StatusBadge status={log.status} /></td>
+                                      </tr>
+                                  ))}
+                              </tbody>
+                          </table>
+                      </div>
+                  </div>
+              )}
+            </div>
           </div>
         </div>
       );
     }
-    
-    // 驗證列表
+    // END UPDATED: Single Verification Detail View
+
+    // Original List View
     return (
       <div className="p-8 w-full max-w-7xl mx-auto space-y-6 font-sans">
         <div className="flex justify-between items-center"><h2 className="text-2xl font-bold text-gray-900">態樣驗證</h2><button onClick={() => setIsCreatingVerify(true)} className="bg-black text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-800 shadow-sm flex items-center gap-2">+ 新增驗證</button></div>
@@ -1012,14 +1016,13 @@ if (row.Txn_Type !== '999') {
           <table className="w-full text-left">
               <thead className="bg-gray-50 border-b border-gray-200 text-gray-500 text-xs uppercase font-semibold"><tr><th className="p-5">標題</th><th className="p-5">建立時間</th><th className="p-5">驗證起訖時間</th><th className="p-5 text-right">型1錯誤</th><th className="p-5 text-right">型2錯誤</th><th className="p-5">驗證狀態</th><th className="p-5"></th></tr></thead>
               <tbody className="divide-y divide-gray-100 text-sm">
-                {MOCK_VERIFY_JOBS.map(job => (<tr key={job.id} onClick={() => setSelectedVerify(job)} className="hover:bg-blue-50 cursor-pointer transition-colors"><td className="p-5 font-medium text-gray-900">{job.title}</td><td className="p-5 text-gray-500 text-xs font-mono">{job.createTime}</td><td className="p-5 text-gray-500 text-xs font-mono"><div>Start: {job.startTime}</div><div>End: {job.endTime}</div></td><td className="p-5 text-right font-mono text-red-600 font-bold">{job.type1}</td><td className="p-5 text-right font-mono text-orange-600 font-bold">{job.type2}</td><td className="p-5"><StatusBadge status={job.status} /></td><td className="p-5 text-gray-400 text-right"><ChevronRight size={18}/></td></tr>))}
+                {MOCK_VERIFY_JOBS.map(job => (<tr key={job.id} onClick={() => setSelectedVerify(job)} className="hover:bg-blue-50 cursor-pointer transition-colors"><td className="p-5 font-medium text-gray-900">{job.title}</td><td className="p-5 text-gray-500 text-xs font-mono">{job.createTime}</td><td className="p-5 text-gray-500 text-xs font-mono"><div>Start: {job.startTime.split(' ')[0]}</div><div>End: {job.endTime.split(' ')[0]}</div></td><td className="p-5 text-right font-mono text-red-600 font-bold">{job.type1}</td><td className="p-5 text-right font-mono text-orange-600 font-bold">{job.type2}</td><td className="p-5"><StatusBadge status={job.status} /></td><td className="p-5 text-gray-400 text-right"><ChevronRight size={18}/></td></tr>))}
               </tbody>
           </table>
         </div>
       </div>
     );
   };
-  // END MODIFICATION 3.0
 
   const renderHistory = () => (
     <div className="p-8 w-full max-w-7xl mx-auto space-y-6 font-sans">
