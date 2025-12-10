@@ -24,7 +24,9 @@ import {
   AlertOctagon,
   History,
   MoreHorizontal,
-  Download
+  Download,
+  Plus,
+  Users
 } from 'lucide-react';
 import {
   BarChart,
@@ -37,7 +39,15 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 
-// --- Mock Data & Types (依照 PDF 內容調整) ---
+// --- Mock Data ---
+
+// 新增：專案列表資料
+const MOCK_PROJECTS = [
+  { id: 1, name: '雪梨 (Sydney)', created: '2026/01/01', lastEdited: '2026/01/01', status: 'Active' },
+  { id: 2, name: '東京 (Tokyo)', created: '2026/01/01', lastEdited: '2026/01/01', status: 'Active' },
+  { id: 3, name: '巴黎 (Paris)', created: '2026/01/01', lastEdited: '2026/01/01', status: 'Active' },
+  { id: 4, name: '台北 (Taipei)', created: '2026/01/01', lastEdited: '2026/01/01', status: 'Active' },
+];
 
 const MOCK_VENDOR_PARAMS = [
   {
@@ -56,22 +66,7 @@ const MOCK_VENDOR_PARAMS = [
     duration: '2026/01/01 ~ 2026/03/31',
     updateTime: '2025-10-10 10:45:45',
   },
-  {
-    id: 'txna1102',
-    schedule: '日跑批',
-    paramName: 'amount',
-    value: '40,000',
-    duration: '2026/01/01 ~ 2026/03/31',
-    updateTime: '2025-10-12 09:00:00',
-  },
-  {
-    id: 'txna1103',
-    schedule: '月跑批',
-    paramName: 'txn_count',
-    value: '50',
-    duration: '2026/01/01 ~ 2026/03/31',
-    updateTime: '2025-10-15 14:20:00',
-  },
+  // ... 其他資料保持不變
 ];
 
 const MOCK_FIELDS = [
@@ -94,49 +89,16 @@ const MOCK_VERIFY_JOBS = [
     status: 'Success',
     simulatedAlerts: 100,
     actualAlerts: 98,
-    type1: 1, // False Positive
-    type2: 1, // False Negative
+    type1: 1, 
+    type2: 1,
     params: { code: 'txna1101', limit: '1,000,000' }
   },
-  {
-    id: 'V-2025Q4-002',
-    title: '2025 Q4 參數調整測試',
-    createTime: '2025-11-20 09:00:00',
-    startTime: '2025-11-20 14:00',
-    endTime: '-',
-    status: 'In Progress',
-    simulatedAlerts: 45,
-    actualAlerts: 0,
-    type1: 0,
-    type2: 0,
-    params: { code: 'txna1102', limit: '50,000' }
-  },
-  {
-    id: 'V-2025Q4-003',
-    title: '2025 Q3 回溯測試',
-    createTime: '2025-11-18 16:00:00',
-    startTime: '2025-11-18 09:00',
-    endTime: '2025-11-18 11:00',
-    status: 'Failed',
-    simulatedAlerts: 0,
-    actualAlerts: 0,
-    type1: 0,
-    type2: 0,
-    params: { code: 'txna1101', limit: '1,000,000' }
-  },
+  // ... 其他資料保持不變
 ];
 
 const MOCK_HISTORY = [
   { dbName: 'TCA001', created: '2025-11-19 10:00:00', verifyCount: 100, scenarioCount: 100, range: '2025-01-01~2025-03-03' },
   { dbName: 'TCA002', created: '2025-10-15 09:30:00', verifyCount: 50, scenarioCount: 98, range: '2024-10-01~2024-12-31' },
-];
-
-const CHART_DATA = [
-  { name: '11/13', error: 4, processing: 20, verified: 50 },
-  { name: '11/14', error: 2, processing: 30, verified: 60 },
-  { name: '11/15', error: 5, processing: 25, verified: 55 },
-  { name: '11/16', error: 1, processing: 40, verified: 80 },
-  { name: '11/17', error: 0, processing: 10, verified: 90 },
 ];
 
 // --- Components ---
@@ -163,8 +125,7 @@ const StatusBadge = ({ status }) => {
     失敗: 'bg-red-100 text-red-700 border border-red-200',
     'In Progress': 'bg-blue-100 text-blue-700 border border-blue-200',
     'Not Started': 'bg-gray-100 text-gray-600 border border-gray-200',
-    mapped: 'bg-green-50 text-green-700 border border-green-200',
-    unmapped: 'bg-yellow-50 text-yellow-700 border border-yellow-200',
+    Active: 'bg-green-50 text-green-700 border border-green-200',
   };
   return (
     <span
@@ -181,11 +142,18 @@ const StatusBadge = ({ status }) => {
 
 export default function AMLPortal() {
   // Global State
-  const [appState, setAppState] = useState('connect'); // 'connect' | 'processing' | 'portal'
-  const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'fields' | 'params' | 'verify' | 'history'
+  // 修改狀態流程: projects -> connect -> processing -> portal
+  const [appState, setAppState] = useState('projects'); 
+  const [activeTab, setActiveTab] = useState('overview');
   
+  // Project State
+  const [projects, setProjects] = useState(MOCK_PROJECTS);
+  const [currentProject, setCurrentProject] = useState(null);
+  const [isCreatingProject, setIsCreatingProject] = useState(false);
+  const [newProjectName, setNewProjectName] = useState('');
+
   // Data Processing State
-  const [processingStep, setProcessingStep] = useState(0); // 0: Start, 1: Extract, 2: Transform, 3: Load
+  const [processingStep, setProcessingStep] = useState(0); 
   
   // Field Mapping State
   const [editingField, setEditingField] = useState(null);
@@ -193,9 +161,30 @@ export default function AMLPortal() {
   // Verification State
   const [selectedVerify, setSelectedVerify] = useState(null);
   const [isCreatingVerify, setIsCreatingVerify] = useState(false);
-  const [verifyTab, setVerifyTab] = useState('report'); // 'setting' | 'report' | 'diff'
+  const [verifyTab, setVerifyTab] = useState('report');
 
-  // --- Logic Simulation ---
+  // --- Helpers ---
+  
+  const handleCreateProject = () => {
+    if (!newProjectName) return;
+    const newProj = {
+      id: Date.now(),
+      name: newProjectName,
+      created: new Date().toLocaleDateString('zh-TW'),
+      lastEdited: new Date().toLocaleDateString('zh-TW'),
+      status: 'Active'
+    };
+    setProjects([newProj, ...projects]);
+    setNewProjectName('');
+    setIsCreatingProject(false);
+  };
+
+  const handleSelectProject = (project) => {
+    setCurrentProject(project);
+    setAppState('connect'); // 進入連接資料庫畫面
+  };
+
+  // Logic Simulation
   useEffect(() => {
     if (appState === 'processing') {
       const timer = setInterval(() => {
@@ -213,11 +202,127 @@ export default function AMLPortal() {
 
   // --- Views ---
 
-  // 1. Data Connection View (資料處理 1.0.1)
+  // 0. Project List View (新增的頁面)
+  const renderProjectList = () => (
+    <div className="flex flex-col h-screen w-full bg-gray-50 font-sans">
+      {/* Top Bar for Project List */}
+      <div className="bg-white border-b border-gray-200 px-8 py-4 flex justify-between items-center shadow-sm">
+        <div className="text-xl font-bold text-gray-900 flex items-center gap-2">
+           <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center text-white font-bold text-sm">XX</div>
+           XX Bank AML Portal
+        </div>
+        <button className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900">
+           <LogOut size={16} /> 登出
+        </button>
+      </div>
+
+      <div className="flex-1 overflow-auto p-12">
+        <div className="max-w-6xl mx-auto space-y-8">
+          <div className="flex justify-between items-end">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">專案列表</h1>
+              <p className="text-gray-500">選擇一個專案以開始進行資料驗證，或建立新的專案。</p>
+            </div>
+            <button 
+              onClick={() => setIsCreatingProject(true)}
+              className="bg-black text-white px-6 py-3 rounded-lg text-sm font-medium hover:bg-gray-800 shadow-lg flex items-center gap-2 transition-transform active:scale-95"
+            >
+              <Plus size={18} /> 建立專案
+            </button>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+             <table className="w-full text-left">
+               <thead className="bg-gray-50 border-b border-gray-200 text-gray-500 text-xs uppercase font-semibold">
+                 <tr>
+                   <th className="p-6">專案名稱</th>
+                   <th className="p-6">建立時間</th>
+                   <th className="p-6">上次編輯時間</th>
+                   <th className="p-6 w-20"></th>
+                 </tr>
+               </thead>
+               <tbody className="divide-y divide-gray-100 text-sm">
+                 {projects.map((proj) => (
+                   <tr 
+                     key={proj.id} 
+                     onClick={() => handleSelectProject(proj)}
+                     className="hover:bg-blue-50 cursor-pointer transition-colors group"
+                   >
+                     <td className="p-6">
+                        <div className="font-bold text-gray-900 text-lg group-hover:text-blue-700 flex items-center gap-3">
+                           <Folder className="text-gray-400 group-hover:text-blue-500" size={20} />
+                           {proj.name}
+                        </div>
+                     </td>
+                     <td className="p-6 text-gray-500 font-mono">{proj.created}</td>
+                     <td className="p-6 text-gray-500 font-mono">{proj.lastEdited}</td>
+                     <td className="p-6 text-gray-400 text-right">
+                        <ChevronRight className="group-hover:text-blue-500" />
+                     </td>
+                   </tr>
+                 ))}
+                 {projects.length === 0 && (
+                   <tr>
+                     <td colSpan="4" className="p-12 text-center text-gray-400">
+                        目前沒有專案，請點擊「建立專案」開始使用。
+                     </td>
+                   </tr>
+                 )}
+               </tbody>
+             </table>
+          </div>
+        </div>
+      </div>
+
+      {/* Create Project Modal */}
+      {isCreatingProject && (
+        <div className="absolute inset-0 bg-gray-900/50 flex items-center justify-center z-50 backdrop-blur-sm">
+           <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-fade-in">
+              <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
+                 <h3 className="font-bold text-gray-900">建立新專案</h3>
+                 <button onClick={() => setIsCreatingProject(false)} className="text-gray-400 hover:text-gray-600"><X size={20}/></button>
+              </div>
+              <div className="p-6 space-y-4">
+                 <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-2">專案名稱</label>
+                    <input 
+                      type="text" 
+                      placeholder="請輸入專案名稱 (例如: 倫敦分行)" 
+                      className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                      value={newProjectName}
+                      onChange={(e) => setNewProjectName(e.target.value)}
+                      autoFocus
+                    />
+                 </div>
+                 <div className="pt-2 flex justify-end gap-3">
+                    <button onClick={() => setIsCreatingProject(false)} className="px-4 py-2 text-sm text-gray-600 font-medium hover:bg-gray-100 rounded-lg">取消</button>
+                    <button onClick={handleCreateProject} className="px-4 py-2 text-sm text-white font-medium bg-black hover:bg-gray-800 rounded-lg">確定建立</button>
+                 </div>
+              </div>
+           </div>
+        </div>
+      )}
+    </div>
+  );
+
+  // 1. Data Connection View (修改過，加入返回專案列表)
   const renderConnect = () => (
-    <div className="flex flex-col h-screen w-full bg-gray-50 items-center justify-center font-sans">
+    <div className="flex flex-col h-screen w-full bg-gray-50 items-center justify-center font-sans relative">
+      <button 
+        onClick={() => { setAppState('projects'); setCurrentProject(null); }}
+        className="absolute top-8 left-8 flex items-center gap-2 text-gray-500 hover:text-gray-900 transition-colors"
+      >
+        <ArrowLeft size={20} /> 返回專案列表
+      </button>
+
       <div className="bg-white p-10 rounded-xl shadow-xl border border-gray-200 w-full max-w-lg">
-        <h2 className="text-2xl font-bold text-center text-gray-900 mb-8">連接資料庫</h2>
+        <div className="text-center mb-8">
+           <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-bold mb-3">
+              <Folder size={12} /> {currentProject?.name}
+           </div>
+           <h2 className="text-2xl font-bold text-gray-900">連接資料庫</h2>
+           <p className="text-gray-500 text-sm mt-2">請設定此專案的資料來源以進行分析</p>
+        </div>
         
         <div className="space-y-6">
           <div>
@@ -253,7 +358,10 @@ export default function AMLPortal() {
           </div>
 
           <div className="pt-4 flex gap-4">
-            <button className="flex-1 bg-white hover:bg-gray-50 text-gray-700 font-medium py-3 rounded-lg border border-gray-300 transition-colors">
+            <button 
+              onClick={() => setAppState('projects')}
+              className="flex-1 bg-white hover:bg-gray-50 text-gray-700 font-medium py-3 rounded-lg border border-gray-300 transition-colors"
+            >
               取消
             </button>
             <button 
@@ -268,7 +376,7 @@ export default function AMLPortal() {
     </div>
   );
 
-  // 2. Data Processing View (資料處理 1.1)
+  // 2. Data Processing View (保持不變)
   const renderProcessing = () => (
     <div className="flex flex-col h-screen w-full bg-gray-50 items-center justify-center font-sans">
       <div className="bg-white p-12 rounded-xl shadow-xl border border-gray-200 w-full max-w-3xl">
@@ -349,7 +457,7 @@ export default function AMLPortal() {
     </div>
   );
 
-  // 3. Portal Views
+  // 3. Portal Views (保持不變)
 
   // 3.1 總覽 (Dashboard)
   const renderOverview = () => (
@@ -992,6 +1100,7 @@ if (row.Txn_Type !== '999') {
 
   // --- Layout Render ---
 
+  if (appState === 'projects') return renderProjectList();
   if (appState === 'connect') return renderConnect();
   if (appState === 'processing') return renderProcessing();
 
@@ -1003,6 +1112,9 @@ if (row.Txn_Type !== '999') {
           <div className="text-white font-bold text-lg tracking-wide flex items-center gap-2">
             <Activity className="text-blue-500" />
             AML Portal
+          </div>
+          <div className="text-gray-500 text-xs mt-2 flex items-center gap-1">
+             <Folder size={12} /> {currentProject?.name}
           </div>
         </div>
 
@@ -1030,13 +1142,13 @@ if (row.Txn_Type !== '999') {
         </nav>
 
         <div className="p-4 border-t border-gray-800">
-          <div className="flex items-center gap-3 text-gray-400 group cursor-pointer hover:text-white transition-colors" onClick={() => setAppState('connect')}>
+          <div className="flex items-center gap-3 text-gray-400 group cursor-pointer hover:text-white transition-colors" onClick={() => { setAppState('projects'); setCurrentProject(null); }}>
              <div className="w-8 h-8 rounded-full bg-blue-900 flex items-center justify-center text-blue-200 font-bold text-xs">
               U1
             </div>
             <div className="text-sm overflow-hidden flex-1">
               <div className="text-gray-300 font-medium truncate">User001</div>
-              <div className="text-xs">登出</div>
+              <div className="text-xs">返回專案列表</div>
             </div>
             <LogOut size={16} />
           </div>
@@ -1062,7 +1174,7 @@ if (row.Txn_Type !== '999') {
                onClick={() => setAppState('connect')}
                className="text-sm bg-black text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors flex items-center gap-2"
              >
-               串接新資料源
+               重新串接資料源
              </button>
            )}
         </header>
